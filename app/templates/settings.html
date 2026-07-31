@@ -1,0 +1,382 @@
+{% extends "base.html" %}
+
+{% block title %}Settings - LinkedIn Daily Automation{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">System & MCP Search Settings</h1>
+    <p class="page-description">Configure AI engines, multi-account profile sessions, detailed MCP search filters, and daily limits.</p>
+  </div>
+</div>
+
+<div class="card" style="max-width: 840px; margin: 0 auto 2rem auto;">
+  <form id="settings-form" onsubmit="saveSettings(event)">
+    
+    <!-- 1. General Mode -->
+    <div class="form-group">
+      <label class="form-label" for="setting-mode">Automation Mode:</label>
+      <select class="form-control" id="setting-mode">
+        <option value="approval" {% if settings.MODE == 'approval' %}selected{% endif %}>Approval Mode (Review in UI before posting)</option>
+        <option value="autonomous" {% if settings.MODE == 'autonomous' %}selected{% endif %}>Autonomous Mode (Fully automated pipeline)</option>
+      </select>
+    </div>
+
+    <!-- Multi-Account Profile Management Section -->
+    <div style="background: var(--bg-subtle); padding: 1.25rem; border-radius: var(--radius-md); border: 1px solid var(--border-subtle); margin-bottom: 1.5rem;">
+      <h3 style="font-size: 0.95rem; font-weight: 600; color: var(--text-primary); margin-bottom: 0.85rem;">👤 Multi-Account Profile Manager</h3>
+      <div class="grid" style="margin-bottom: 0;">
+        <div>
+          <label class="form-label" for="setting-active-profile">Active Account Profile Session:</label>
+          <select class="form-control" id="setting-active-profile">
+            {% for prof in settings.available_profiles %}
+            <option value="{{ prof }}" {% if settings.active_profile == prof %}selected{% endif %}>{{ prof | replace('_', ' ') | title }} ({% if settings.active_profile == prof %}Active{% else %}Saved{% endif %})</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div>
+          <label class="form-label" for="setting-new-profile">Create / Add New Profile Name:</label>
+          <input type="text" class="form-control" id="setting-new-profile" placeholder="e.g. work_profile, client_account">
+        </div>
+      </div>
+      <p style="font-size: 0.75rem; color: var(--text-tertiary); margin-top: 0.5rem; margin-bottom: 0;">
+        Switching active profiles isolates session storage, browser cookies, and daily quota limits per LinkedIn account.
+      </p>
+    </div>
+
+    <!-- 2. AI Engine Section -->
+    <div style="background: var(--bg-subtle); padding: 1.25rem; border-radius: var(--radius-md); border: 1px solid var(--border-subtle); margin-bottom: 1.5rem;">
+      <h3 style="font-size: 0.95rem; font-weight: 600; color: var(--text-primary); margin-bottom: 0.85rem;">🤖 Active AI Engine Configuration</h3>
+      
+      <div style="display: flex; gap: 2rem; margin-bottom: 1rem;">
+        <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; color: var(--text-primary); font-size: 0.875rem; font-weight: 500;">
+          <input type="radio" name="ai_provider" value="gemini" {% if settings.ai_provider == 'gemini' or not settings.ai_provider %}checked{% endif %} onchange="toggleAIProvider()">
+          Google Gemini AI
+        </label>
+        <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; color: var(--text-primary); font-size: 0.875rem; font-weight: 500;">
+          <input type="radio" name="ai_provider" value="openai" {% if settings.ai_provider == 'openai' %}checked{% endif %} onchange="toggleAIProvider()">
+          OpenAI (GPT-4o / o-series)
+        </label>
+      </div>
+
+      <!-- Gemini Section -->
+      <div id="section-gemini" style="display: {% if settings.ai_provider == 'openai' %}none{% else %}block{% endif %};">
+        <div class="form-group" style="margin-bottom: 0;">
+          <label class="form-label" for="setting-gemini-model">Gemini Model (Sorted Lowest → Highest Price):</label>
+          <select class="form-control" id="setting-gemini-model">
+            <option value="gemini-1.5-flash-8b" {% if settings.gemini_model == 'gemini-1.5-flash-8b' %}selected{% endif %}>1. gemini-1.5-flash-8b — ($0.0375 / 1M in, $0.15 / 1M out)</option>
+            <option value="gemini-1.5-flash" {% if settings.gemini_model == 'gemini-1.5-flash' %}selected{% endif %}>2. gemini-1.5-flash — ($0.075 / 1M in, $0.30 / 1M out)</option>
+            <option value="gemini-2.0-flash-lite" {% if settings.gemini_model == 'gemini-2.0-flash-lite' %}selected{% endif %}>3. gemini-2.0-flash-lite — ($0.075 / 1M in, $0.30 / 1M out)</option>
+            <option value="gemini-2.5-flash" {% if settings.gemini_model == 'gemini-2.5-flash' or not settings.gemini_model %}selected{% endif %}>4. gemini-2.5-flash — ($0.075 / 1M in, $0.30 / 1M out) [Recommended]</option>
+            <option value="gemini-2.0-flash" {% if settings.gemini_model == 'gemini-2.0-flash' %}selected{% endif %}>5. gemini-2.0-flash — ($0.10 / 1M in, $0.40 / 1M out)</option>
+            <option value="gemini-3.1-flash-lite" {% if settings.gemini_model == 'gemini-3.1-flash-lite' %}selected{% endif %}>6. gemini-3.1-flash-lite — ($0.25 / 1M in, $1.50 / 1M out)</option>
+            <option value="gemini-3-flash-preview" {% if settings.gemini_model == 'gemini-3-flash-preview' %}selected{% endif %}>7. gemini-3-flash-preview — ($0.50 / 1M in, $3.00 / 1M out)</option>
+            <option value="gemini-3.5-flash" {% if settings.gemini_model == 'gemini-3.5-flash' %}selected{% endif %}>8. gemini-3.5-flash — ($1.50 / 1M in, $9.00 / 1M out)</option>
+            <option value="gemini-3.6-flash" {% if settings.gemini_model == 'gemini-3.6-flash' %}selected{% endif %}>9. gemini-3.6-flash — ($1.50 / 1M in, $7.50 / 1M out)</option>
+            <option value="gemini-3.1-pro-preview" {% if settings.gemini_model == 'gemini-3.1-pro-preview' %}selected{% endif %}>10. gemini-3.1-pro-preview — ($2.00 / 1M in, $12.00 / 1M out)</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- OpenAI Section -->
+      <div id="section-openai" style="display: {% if settings.ai_provider == 'openai' %}block{% else %}none{% endif %};">
+        <div class="form-group">
+          <label class="form-label" for="setting-openai-key">OpenAI API Key:</label>
+          <input type="password" class="form-control" id="setting-openai-key" value="{{ settings.OPENAI_API_KEY }}" placeholder="sk-proj-...">
+        </div>
+        <div class="form-group" style="margin-bottom: 0;">
+          <label class="form-label" for="setting-openai-model">OpenAI Model (Sorted Lowest → Highest Price):</label>
+          <select class="form-control" id="setting-openai-model">
+            <option value="gpt-4o-mini" {% if settings.openai_model == 'gpt-4o-mini' or not settings.openai_model %}selected{% endif %}>1. gpt-4o-mini — ($0.15 / 1M in, $0.60 / 1M out) [Recommended]</option>
+            <option value="gpt-4o-mini-2024-07-18" {% if settings.openai_model == 'gpt-4o-mini-2024-07-18' %}selected{% endif %}>2. gpt-4o-mini-2024-07-18 — ($0.15 / 1M in, $0.60 / 1M out)</option>
+            <option value="gpt-3.5-turbo" {% if settings.openai_model == 'gpt-3.5-turbo' %}selected{% endif %}>3. gpt-3.5-turbo — ($0.50 / 1M in, $1.50 / 1M out)</option>
+            <option value="o3-mini" {% if settings.openai_model == 'o3-mini' %}selected{% endif %}>4. o3-mini — ($1.10 / 1M in, $4.40 / 1M out)</option>
+            <option value="o1-mini" {% if settings.openai_model == 'o1-mini' %}selected{% endif %}>5. o1-mini — ($1.10 / 1M in, $4.40 / 1M out)</option>
+            <option value="gpt-4o" {% if settings.openai_model == 'gpt-4o' %}selected{% endif %}>6. gpt-4o — ($2.50 / 1M in, $10.00 / 1M out)</option>
+            <option value="gpt-4o-2024-11-20" {% if settings.openai_model == 'gpt-4o-2024-11-20' %}selected{% endif %}>7. gpt-4o-2024-11-20 — ($2.50 / 1M in, $10.00 / 1M out)</option>
+            <option value="gpt-4-turbo" {% if settings.openai_model == 'gpt-4-turbo' %}selected{% endif %}>8. gpt-4-turbo — ($10.00 / 1M in, $30.00 / 1M out)</option>
+            <option value="o1" {% if settings.openai_model == 'o1' %}selected{% endif %}>9. o1 — ($15.00 / 1M in, $60.00 / 1M out)</option>
+            <option value="gpt-4" {% if settings.openai_model == 'gpt-4' %}selected{% endif %}>10. gpt-4 — ($30.00 / 1M in, $60.00 / 1M out)</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- 3. Home Feed Settings -->
+    <div style="background: var(--bg-subtle); padding: 1.25rem; border-radius: var(--radius-md); border: 1px solid var(--border-subtle); margin-bottom: 1.5rem;">
+      <h3 style="font-size: 0.95rem; font-weight: 600; color: var(--text-primary); margin-bottom: 0.85rem;">📢 Priority 1: Home Feed Collection</h3>
+      
+      <div class="grid" style="margin-bottom: 0;">
+        <div>
+          <label class="form-label" for="setting-limit-posts">Max Feed Posts Limit:</label>
+          <input type="number" class="form-control" id="setting-limit-posts" value="{{ settings.daily_limits.max_feed_posts }}">
+        </div>
+        <div>
+          <label class="form-label" for="setting-feed-sort">Feed Ordering:</label>
+          <select class="form-control" id="setting-feed-sort">
+            <option value="recent" {% if settings.feed.sort_by == 'recent' %}selected{% endif %}>Most Recent (Chronological)</option>
+            <option value="top" {% if settings.feed.sort_by == 'top' %}selected{% endif %}>Top Recommended</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- 4. MCP Post Search Settings -->
+    <div style="background: var(--bg-subtle); padding: 1.25rem; border-radius: var(--radius-md); border: 1px solid var(--border-subtle); margin-bottom: 1.5rem;">
+      <h3 style="font-size: 0.95rem; font-weight: 600; color: var(--text-primary); margin-bottom: 0.85rem;">🔍 Priority 2: MCP Post Search & Filters</h3>
+      
+      <div class="form-group">
+        <label class="form-label" for="setting-keywords">Search Keywords (comma separated):</label>
+        <input type="text" class="form-control" id="setting-keywords" value="{{ settings.keywords | join(', ') }}" placeholder="e.g. AI automation, Software Engineering, Founder">
+      </div>
+
+      <div class="grid" style="margin-bottom: 0;">
+        <div>
+          <label class="form-label" for="setting-limit-search-posts">Posts Per Search Keyword:</label>
+          <input type="number" class="form-control" id="setting-limit-search-posts" value="{{ settings.search.max_posts_per_keyword }}">
+        </div>
+        <div>
+          <label class="form-label" for="setting-recency">Date Posted Recency:</label>
+          <select class="form-control" id="setting-recency">
+            <option value="past-24h" {% if settings.recency == 'past-24h' %}selected{% endif %}>Past 24 Hours</option>
+            <option value="past-week" {% if settings.recency == 'past-week' or not settings.recency %}selected{% endif %}>Past Week</option>
+            <option value="past-month" {% if settings.recency == 'past-month' %}selected{% endif %}>Past Month</option>
+          </select>
+        </div>
+        <div>
+          <label class="form-label" for="setting-post-sort">Post Search Sort Order:</label>
+          <select class="form-control" id="setting-post-sort">
+            <option value="relevance" {% if settings.search.sort_by == 'relevance' %}selected{% endif %}>Most Relevant</option>
+            <option value="date_posted" {% if settings.search.sort_by == 'date_posted' %}selected{% endif %}>Latest Date Posted</option>
+          </select>
+        </div>
+        <div>
+          <label class="form-label" for="setting-content-type">Post Content Type:</label>
+          <select class="form-control" id="setting-content-type">
+            <option value="all" {% if settings.search.content_type == 'all' %}selected{% endif %}>All Types</option>
+            <option value="videos" {% if settings.search.content_type == 'videos' %}selected{% endif %}>Videos Only</option>
+            <option value="photos" {% if settings.search.content_type == 'photos' %}selected{% endif %}>Images / Photos Only</option>
+            <option value="documents" {% if settings.search.content_type == 'documents' %}selected{% endif %}>Documents / PDFs Only</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- 5. MCP People Search Settings -->
+    <div style="background: var(--bg-subtle); padding: 1.25rem; border-radius: var(--radius-md); border: 1px solid var(--border-subtle); margin-bottom: 1.5rem;">
+      <h3 style="font-size: 0.95rem; font-weight: 600; color: var(--text-primary); margin-bottom: 0.85rem;">👥 Priority 3: MCP People Search & Targeting</h3>
+      
+      <div class="grid" style="margin-bottom: 0.85rem;">
+        <div>
+          <label class="form-label" for="setting-limit-search-people">People Per Keyword:</label>
+          <input type="number" class="form-control" id="setting-limit-search-people" value="{{ settings.search.max_people_per_keyword }}">
+        </div>
+        <div>
+          <label class="form-label" for="setting-network-degree">Network Connection Degree:</label>
+          <select class="form-control" id="setting-network-degree">
+            <option value="2nd" {% if settings.search.network_degree == '2nd' %}selected{% endif %}>2nd Degree Connections (Recommended)</option>
+            <option value="3rd" {% if settings.search.network_degree == '3rd' %}selected{% endif %}>3rd+ Degree Connections</option>
+            <option value="1st" {% if settings.search.network_degree == '1st' %}selected{% endif %}>1st Degree Connections</option>
+            <option value="all" {% if settings.search.network_degree == 'all' %}selected{% endif %}>All Degrees</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="grid" style="margin-bottom: 0;">
+        <div>
+          <label class="form-label" for="setting-title-filter">Job Title Filter (Optional):</label>
+          <input type="text" class="form-control" id="setting-title-filter" value="{{ settings.search.title_filter }}" placeholder="e.g. CEO, Founder, VP Engineering">
+        </div>
+        <div>
+          <label class="form-label" for="setting-location-filter">Location Filter (Optional):</label>
+          <input type="text" class="form-control" id="setting-location-filter" value="{{ settings.search.location_filter }}" placeholder="e.g. United States, India, London">
+        </div>
+      </div>
+
+      <div style="margin-top: 1rem; border-top: 1px solid var(--border-subtle); padding-top: 0.85rem; display: flex; flex-direction: column; gap: 0.75rem;">
+        <div>
+          <label style="display: flex; align-items: center; gap: 0.65rem; cursor: pointer; color: var(--text-primary); font-size: 0.875rem; font-weight: 500;">
+            <input type="checkbox" id="setting-generate-notes" {% if settings.generate_custom_connection_notes %}checked{% endif %}>
+            Generate Custom AI Notes (AI creates personalized note draft for candidates)
+          </label>
+          <p style="font-size: 0.75rem; color: var(--text-tertiary); margin: 0.2rem 0 0 1.7rem;">
+            Uncheck to skip AI note generation entirely during job runs (saves AI API tokens & time).
+          </p>
+        </div>
+
+        <div>
+          <label style="display: flex; align-items: center; gap: 0.65rem; cursor: pointer; color: var(--text-primary); font-size: 0.875rem; font-weight: 500;">
+            <input type="checkbox" id="setting-send-notes" {% if settings.send_custom_connection_notes %}checked{% endif %}>
+            Send Custom AI Notes with Invites (Default checkbox state on approvals queue)
+          </label>
+          <p style="font-size: 0.75rem; color: var(--text-tertiary); margin: 0.2rem 0 0 1.7rem;">
+            Uncheck to default the approval queue checkbox to unchecked (preserves free LinkedIn monthly note quota).
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- 6. Daily Execution Limits -->
+    <div class="grid" style="margin-bottom: 1.25rem;">
+      <div>
+        <label class="form-label" for="setting-limit-comments">Daily Max Comments Limit:</label>
+        <input type="number" class="form-control" id="setting-limit-comments" value="{{ settings.daily_limits.comments }}">
+      </div>
+      <div>
+        <label class="form-label" for="setting-limit-connects">Daily Max Connections Limit:</label>
+        <input type="number" class="form-control" id="setting-limit-connects" value="{{ settings.daily_limits.connections }}">
+      </div>
+    </div>
+
+    <!-- 7. Persona & Prompting -->
+    <div class="form-group">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem;">
+        <label class="form-label" for="setting-user-persona" style="margin-bottom: 0;">My Profile Persona / Bio Summary:</label>
+        <button type="button" class="btn btn-secondary" style="padding: 0.25rem 0.6rem; font-size: 0.75rem;" id="btn-generate-bio" onclick="generateMyBio()">
+          Auto-Generate via MCP + AI
+        </button>
+      </div>
+      <textarea class="form-control" id="setting-user-persona" placeholder="Auto-generated or custom summary of your background, role, and focus area...">{{ settings.user_persona }}</textarea>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label" for="setting-custom-instructions">Custom AI Instructions:</label>
+      <textarea class="form-control" id="setting-custom-instructions" placeholder="e.g. Always maintain an encouraging tone. Never use buzzwords like 'synergy' or 'disrupt'...">{{ settings.custom_instructions }}</textarea>
+    </div>
+
+    <div style="display: flex; justify-content: flex-end; gap: 1rem;">
+      <button type="submit" class="btn btn-primary" id="btn-save-settings">
+        Save Settings
+      </button>
+    </div>
+  </form>
+</div>
+
+<!-- Danger Zone Card -->
+<div class="card" style="max-width: 840px; margin: 0 auto; border-color: rgba(239, 68, 68, 0.3);">
+  <div style="display: flex; justify-content: space-between; align-items: center;">
+    <div>
+      <h3 style="font-size: 1rem; color: var(--status-red); font-weight: 600; margin-bottom: 0.2rem;">Danger Zone: Reset Database</h3>
+      <p style="color: var(--text-tertiary); font-size: 0.8rem;">Permanently clear all jobs, pending approvals, and execution history logs.</p>
+    </div>
+    <button type="button" class="btn btn-danger" id="btn-clear-all" onclick="clearAllData()">
+      🗑️ Clear All Logs & Approvals
+    </button>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function toggleAIProvider() {
+  const provider = document.querySelector('input[name="ai_provider"]:checked').value;
+  document.getElementById('section-gemini').style.display = (provider === 'gemini') ? 'block' : 'none';
+  document.getElementById('section-openai').style.display = (provider === 'openai') ? 'block' : 'none';
+}
+
+async function generateMyBio() {
+  const btn = document.getElementById('btn-generate-bio');
+  btn.disabled = true;
+  btn.innerText = 'Fetching Profile...';
+
+  try {
+    const res = await fetch('/api/settings/generate-my-bio', { method: 'POST' });
+    const data = await res.json();
+    if (res.ok) {
+      document.getElementById('setting-user-persona').value = data.user_persona;
+      alert(data.message);
+    } else {
+      alert('Error generating bio: ' + (data.detail || 'Failed'));
+    }
+  } catch (err) {
+    alert('Error generating bio: ' + err);
+  } finally {
+    btn.disabled = false;
+    btn.innerText = 'Auto-Generate via MCP + AI';
+  }
+}
+
+async function clearAllData() {
+  if (!confirm("Are you sure you want to delete ALL jobs, pending approvals, and execution logs? This cannot be undone.")) return;
+  
+  const btn = document.getElementById('btn-clear-all');
+  btn.disabled = true;
+  btn.innerText = 'Clearing...';
+
+  try {
+    const res = await fetch('/api/admin/clear-all', { method: 'POST' });
+    const data = await res.json();
+    if (res.ok) {
+      alert(data.message);
+      window.location.href = '/approvals';
+    } else {
+      alert('Error clearing data: ' + (data.detail || 'Failed'));
+    }
+  } catch (err) {
+    alert('Error clearing data: ' + err);
+  } finally {
+    btn.disabled = false;
+    btn.innerText = '🗑️ Clear All Logs & Approvals';
+  }
+}
+
+async function saveSettings(e) {
+  e.preventDefault();
+  const btn = document.getElementById('btn-save-settings');
+  btn.disabled = true;
+  btn.innerText = 'Saving...';
+
+  const provider = document.querySelector('input[name="ai_provider"]:checked').value;
+  const keywordsRaw = document.getElementById('setting-keywords').value;
+  const keywords = keywordsRaw.split(',').map(s => s.trim()).filter(Boolean);
+
+  const newProfile = document.getElementById('setting-new-profile').value.trim();
+  const activeProfile = newProfile ? newProfile : document.getElementById('setting-active-profile').value;
+
+  const payload = {
+    mode: document.getElementById('setting-mode').value,
+    active_profile: activeProfile,
+    ai_provider: provider,
+    openai_api_key: document.getElementById('setting-openai-key').value,
+    gemini_model: document.getElementById('setting-gemini-model').value,
+    openai_model: document.getElementById('setting-openai-model').value,
+    keywords: keywords,
+    recency: document.getElementById('setting-recency').value,
+    post_sort_by: document.getElementById('setting-post-sort').value,
+    post_content_type: document.getElementById('setting-content-type').value,
+    people_network_degree: document.getElementById('setting-network-degree').value,
+    people_title_filter: document.getElementById('setting-title-filter').value,
+    people_location_filter: document.getElementById('setting-location-filter').value,
+    feed_sort_by: document.getElementById('setting-feed-sort').value,
+    generate_custom_connection_notes: document.getElementById('setting-generate-notes').checked,
+    send_custom_connection_notes: document.getElementById('setting-send-notes').checked,
+    max_feed_posts: parseInt(document.getElementById('setting-limit-posts').value),
+    max_posts_per_keyword: parseInt(document.getElementById('setting-limit-search-posts').value),
+    max_people_per_keyword: parseInt(document.getElementById('setting-limit-search-people').value),
+    max_comments: parseInt(document.getElementById('setting-limit-comments').value),
+    max_connections: parseInt(document.getElementById('setting-limit-connects').value),
+    user_persona: document.getElementById('setting-user-persona').value,
+    custom_instructions: document.getElementById('setting-custom-instructions').value
+  };
+
+  try {
+    const res = await fetch('/api/settings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    if (res.ok) {
+      alert('Settings saved permanently to config.yaml!');
+      location.reload();
+    } else {
+      alert('Error updating settings.');
+    }
+  } catch (err) {
+    alert('Error: ' + err);
+  } finally {
+    btn.disabled = false;
+    btn.innerText = 'Save Settings';
+  }
+}
+</script>
+{% endblock %}

@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+
+{% block title %}Analytics & Conversion - LinkedIn Daily Automation{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Analytics & Engagement Conversion Dashboard</h1>
+    <p class="page-description">Real-time statistics, execution metrics, action distribution, and daily performance timeline.</p>
+  </div>
+</div>
+
+<!-- Key Performance Metrics Grid -->
+<div class="grid" style="margin-bottom: 1.5rem;">
+  <div class="card">
+    <div class="card-title">Total Executions</div>
+    <div class="card-value">{{ total_exec }}</div>
+    <div style="font-size: 0.75rem; color: var(--text-tertiary); margin-top: 0.3rem;">Actions run across all jobs</div>
+  </div>
+  <div class="card">
+    <div class="card-title">Success Rate</div>
+    <div class="card-value" style="color: var(--status-green);">{{ success_rate }}%</div>
+    <div style="font-size: 0.75rem; color: var(--text-tertiary); margin-top: 0.3rem;">{{ success_count }} successful / {{ failed_count }} failed</div>
+  </div>
+  <div class="card">
+    <div class="card-title">Comments Executed</div>
+    <div class="card-value" style="color: var(--accent-blue);">{{ comments_count }}</div>
+    <div style="font-size: 0.75rem; color: var(--text-tertiary); margin-top: 0.3rem;">Target post comments posted</div>
+  </div>
+  <div class="card">
+    <div class="card-title">Connections Sent</div>
+    <div class="card-value" style="color: #a855f7;">{{ connects_count }}</div>
+    <div style="font-size: 0.75rem; color: var(--text-tertiary); margin-top: 0.3rem;">Connection invites delivered</div>
+  </div>
+</div>
+
+<!-- Daily Performance Timeline Chart Card -->
+<div class="card" style="margin-bottom: 1.5rem;">
+  <h3 style="font-size: 1rem; font-weight: 600; color: var(--text-primary); margin-bottom: 1.25rem;">📈 Daily Action Execution Activity (Past 7 Days)</h3>
+  <div style="display: flex; align-items: flex-end; gap: 1.25rem; height: 180px; padding-bottom: 0.5rem; border-bottom: 1px solid var(--border-subtle);">
+    {% for day in daily_stats %}
+    {% set max_count = 10 %}
+    {% set bar_height = [(day.count / max_count * 140) | int, 12] | max %}
+    <div style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 0.5rem;">
+      <span style="font-size: 0.75rem; font-weight: 600; color: var(--text-primary);">{{ day.count }}</span>
+      <div style="width: 100%; max-width: 45px; height: {{ bar_height }}px; background: linear-gradient(180deg, var(--accent-blue), #1e40af); border-radius: 4px; transition: height 0.3s ease;"></div>
+      <span style="font-size: 0.75rem; color: var(--text-tertiary);">{{ day.date }}</span>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+
+<!-- Actions Distribution & Recent Executions -->
+<div class="grid" style="grid-template-columns: 1fr 2fr; margin-bottom: 2rem;">
+  <!-- System Status Overview -->
+  <div class="card">
+    <h3 style="font-size: 0.95rem; font-weight: 600; color: var(--text-primary); margin-bottom: 1rem;">⚙️ Queue Status</h3>
+    <div style="display: flex; flex-direction: column; gap: 0.85rem;">
+      <div style="display: flex; justify-content: space-between; align-items: center; padding-bottom: 0.5rem; border-bottom: 1px solid var(--border-subtle);">
+        <span style="font-size: 0.85rem; color: var(--text-secondary);">Pending Approvals</span>
+        <span class="badge badge-pending" style="font-size: 0.85rem;">{{ pending_approvals }}</span>
+      </div>
+      <div style="display: flex; justify-content: space-between; align-items: center; padding-bottom: 0.5rem; border-bottom: 1px solid var(--border-subtle);">
+        <span style="font-size: 0.85rem; color: var(--text-secondary);">Completed Jobs</span>
+        <span class="badge badge-completed" style="font-size: 0.85rem;">{{ completed_jobs }}</span>
+      </div>
+      <div style="display: flex; justify-content: space-between; align-items: center; padding-bottom: 0.5rem; border-bottom: 1px solid var(--border-subtle);">
+        <span style="font-size: 0.85rem; color: var(--text-secondary);">Active Profile</span>
+        <span style="font-size: 0.85rem; font-weight: 600; color: var(--text-primary);">{{ settings.active_profile | replace('_', ' ') | title }}</span>
+      </div>
+      <div style="display: flex; justify-content: space-between; align-items: center;">
+        <span style="font-size: 0.85rem; color: var(--text-secondary);">AI Provider</span>
+        <span style="font-size: 0.85rem; font-weight: 600; color: var(--accent-blue);">{{ settings.ai_provider | upper }}</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Recent Engagements Table -->
+  <div class="card">
+    <h3 style="font-size: 0.95rem; font-weight: 600; color: var(--text-primary); margin-bottom: 1rem;">🎯 Recent Target Engagements Log</h3>
+    <div class="table-container">
+      <table>
+        <thead>
+          <tr>
+            <th>Type</th>
+            <th>Target Name</th>
+            <th>Status</th>
+            <th>Timestamp</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in recent_targets %}
+          <tr>
+            <td><span class="badge badge-{{ item.action_type }}">{{ item.action_type }}</span></td>
+            <td style="color: var(--text-primary); font-weight: 500;">
+              {{ item.target_name or 'LinkedIn Target' }}
+              <br>
+              <a href="{{ item.target_url }}" target="_blank" style="font-size: 0.75rem; color: var(--accent-blue); text-decoration: none;">View ↗</a>
+            </td>
+            <td><span class="badge badge-{{ item.status }}">{{ item.status }}</span></td>
+            <td style="font-size: 0.8rem; color: var(--text-tertiary);">
+              {{ item.timestamp.strftime('%b %d, %H:%M') if item.timestamp else '-' }}
+            </td>
+          </tr>
+          {% else %}
+          <tr>
+            <td colspan="4" style="text-align: center; color: var(--text-tertiary);">No executed history entries recorded yet.</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

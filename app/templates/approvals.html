@@ -1,0 +1,330 @@
+{% extends "base.html" %}
+
+{% block title %}Approvals Queue - LinkedIn Daily Automation{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Review & Approve Actions (Pending Action Approvals)</h1>
+    <p class="page-description">
+      Review target posts, edit responses with Ctrl+Z / Ctrl+Y undo/redo support, or execute live actions with detailed MCP logs.
+    </p>
+  </div>
+  <div>
+    <button class="btn btn-success" id="btn-approve-all" onclick="approveAll()">
+      Approve All Pending
+    </button>
+  </div>
+</div>
+
+<!-- Linear Filter Bar -->
+<div class="card" style="margin-bottom: 1.5rem; padding: 0.85rem 1.25rem;">
+  <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 1rem;">
+    <div style="display: flex; align-items: center; gap: 0.75rem;">
+      <span style="color: var(--text-tertiary); font-size: 0.75rem; font-weight: 600; text-transform: uppercase;">Type:</span>
+      <div style="display: flex; gap: 0.35rem;">
+        <a href="/approvals?action_type=all&status={{ current_status }}" class="btn btn-secondary {% if current_type == 'all' %}active{% endif %}" style="padding: 0.3rem 0.65rem; font-size: 0.8rem;">All</a>
+        <a href="/approvals?action_type=comment&status={{ current_status }}" class="btn btn-secondary {% if current_type == 'comment' %}active{% endif %}" style="padding: 0.3rem 0.65rem; font-size: 0.8rem;">Comments</a>
+        <a href="/approvals?action_type=connect&status={{ current_status }}" class="btn btn-secondary {% if current_type == 'connect' %}active{% endif %}" style="padding: 0.3rem 0.65rem; font-size: 0.8rem;">Connections</a>
+        <a href="/approvals?action_type=follow&status={{ current_status }}" class="btn btn-secondary {% if current_type == 'follow' %}active{% endif %}" style="padding: 0.3rem 0.65rem; font-size: 0.8rem;">Follows</a>
+      </div>
+    </div>
+
+    <div style="display: flex; align-items: center; gap: 0.75rem;">
+      <span style="color: var(--text-tertiary); font-size: 0.75rem; font-weight: 600; text-transform: uppercase;">Status:</span>
+      <div style="display: flex; gap: 0.35rem;">
+        <a href="/approvals?action_type={{ current_type }}&status=pending" class="btn btn-secondary {% if current_status == 'pending' %}active{% endif %}" style="padding: 0.3rem 0.65rem; font-size: 0.8rem;">Pending</a>
+        <a href="/approvals?action_type={{ current_type }}&status=approved" class="btn btn-secondary {% if current_status == 'approved' %}active{% endif %}" style="padding: 0.3rem 0.65rem; font-size: 0.8rem;">Approved</a>
+        <a href="/approvals?action_type={{ current_type }}&status=rejected" class="btn btn-secondary {% if current_status == 'rejected' %}active{% endif %}" style="padding: 0.3rem 0.65rem; font-size: 0.8rem;">Rejected</a>
+        <a href="/approvals?action_type={{ current_type }}&status=executed" class="btn btn-secondary {% if current_status == 'executed' %}active{% endif %}" style="padding: 0.3rem 0.65rem; font-size: 0.8rem;">Executed</a>
+        <a href="/approvals?action_type={{ current_type }}&status=all" class="btn btn-secondary {% if current_status == 'all' %}active{% endif %}" style="padding: 0.3rem 0.65rem; font-size: 0.8rem;">All</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% if actions %}
+<div style="display: flex; flex-direction: column; gap: 1.25rem;">
+  {% for act in actions %}
+  <div class="card" id="action-card-{{ act.id }}">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.85rem;">
+      <div style="display: flex; align-items: center; gap: 0.65rem;">
+        <span class="badge badge-{{ act.action_type }}">
+          {{ act.action_type | upper }}
+        </span>
+        <span style="font-weight: 600; color: var(--text-primary); font-size: 1rem;">{{ act.target_name or 'LinkedIn Target' }}</span>
+        <a href="{{ act.target_url }}" target="_blank" style="color: var(--accent-blue); font-size: 0.8rem; text-decoration: none;" id="link-action-{{ act.id }}">
+          View Target Profile ↗
+        </a>
+      </div>
+      <div style="display: flex; align-items: center; gap: 0.5rem;">
+        <span class="badge badge-{{ act.status }}">{{ act.status }}</span>
+        <span style="font-size: 0.75rem; color: var(--text-tertiary);">Job #{{ act.job_id }}</span>
+      </div>
+    </div>
+
+    <!-- Post Context Box -->
+    {% if act.original_text %}
+    <div style="background: var(--bg-subtle); padding: 0.85rem 1rem; border-radius: var(--radius-sm); margin-bottom: 1rem; border-left: 2px solid var(--accent-blue);">
+      <div style="font-size: 0.75rem; color: var(--text-tertiary); font-weight: 600; text-transform: uppercase; margin-bottom: 0.25rem;">
+        {% if act.action_type == 'comment' %}Target Post Content Context:{% else %}Target Headline / Bio:{% endif %}
+      </div>
+      <div style="font-size: 0.875rem; color: var(--text-secondary); line-height: 1.45;">
+        {{ act.original_text }}
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Generated AI Text Output & Edit Bar -->
+    <div class="form-group" style="margin-bottom: 1rem;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem; flex-wrap: wrap; gap: 0.5rem;">
+        <div style="display: flex; align-items: center; gap: 0.5rem;">
+          <label class="form-label" for="text-{{ act.id }}" style="margin-bottom: 0; font-size: 0.8rem; font-weight: 600;">
+            {% if act.action_type == 'comment' %}Generated Comment:{% else %}Connection Note:{% endif %}
+          </label>
+          <span id="unsaved-badge-{{ act.id }}" style="display: none; font-size: 0.7rem; color: #3b82f6; font-weight: 600;">● Edited (Unsaved)</span>
+        </div>
+        
+        <div style="display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap;">
+          {% if act.action_type == 'connect' %}
+          <label style="display: flex; align-items: center; gap: 0.4rem; font-size: 0.78rem; color: var(--text-primary); cursor: pointer; background: var(--bg-subtle); padding: 0.2rem 0.5rem; border-radius: 4px; border: 1px solid var(--border-subtle);">
+            <input type="checkbox" id="send-note-{{ act.id }}" {% if act.generated_text and settings.send_custom_connection_notes %}checked{% endif %} onchange="toggleNoteInput({{ act.id }})">
+            Include custom note
+          </label>
+          {% endif %}
+
+          <button type="button" class="btn btn-secondary" style="padding: 0.25rem 0.55rem; font-size: 0.75rem;" id="btn-save-text-{{ act.id }}" onclick="saveActionText({{ act.id }})" title="Save current edit to database (Ctrl+S when focused)">
+            💾 Save Text
+          </button>
+
+          <button type="button" class="btn btn-secondary" style="padding: 0.25rem 0.55rem; font-size: 0.75rem;" id="btn-reset-{{ act.id }}" onclick="resetToAIOriginal({{ act.id }})" title="Reset text back to original AI output">
+            ↺ Reset to AI Original
+          </button>
+
+          <button type="button" class="btn btn-secondary" style="padding: 0.25rem 0.55rem; font-size: 0.75rem;" id="btn-regen-{{ act.id }}" onclick="regenerateAction({{ act.id }})">
+            🔄 Regenerate with AI
+          </button>
+        </div>
+      </div>
+      <textarea class="form-control" id="text-{{ act.id }}" data-original-ai="{{ act.generated_text or '' }}" oninput="markUnsaved({{ act.id }})" onkeydown="handleTextareaKeydown(event, {{ act.id }})" {% if act.action_type == 'connect' and not settings.send_custom_connection_notes %}disabled style="opacity: 0.4;"{% endif %}>{{ act.generated_text or '' }}</textarea>
+      <div style="font-size: 0.7rem; color: var(--text-tertiary); margin-top: 0.25rem; display: flex; justify-content: space-between;">
+        <span>Supports <code>Ctrl+Z</code> (Undo), <code>Ctrl+Y</code> (Redo), and <code>Ctrl+S</code> (Save).</span>
+        <span id="char-count-{{ act.id }}">{{ (act.generated_text or '') | length }} chars</span>
+      </div>
+    </div>
+
+    <!-- Collapsible Detailed Execution Result Log Box (Collapsed by default) -->
+    {% if act.result_details %}
+    <details style="background: var(--bg-main); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); margin-bottom: 1rem;">
+      <summary style="font-size: 0.75rem; color: var(--text-secondary); font-weight: 600; text-transform: uppercase; padding: 0.65rem 0.85rem; cursor: pointer; user-select: none; display: flex; align-items: center; justify-content: space-between;">
+        <span>📋 Detailed Execution Result Log</span>
+        <span style="font-size: 0.7rem; color: var(--text-tertiary); font-weight: normal;">(Click to Expand)</span>
+      </summary>
+      <div style="padding: 0.75rem 1rem; border-top: 1px solid var(--border-subtle); background: var(--bg-subtle);">
+        <pre style="font-size: 0.8rem; color: var(--text-secondary); font-family: monospace; white-space: pre-wrap; margin: 0; max-height: 240px; overflow-y: auto;">{{ act.result_details }}</pre>
+      </div>
+    </details>
+    {% endif %}
+
+    <!-- Action Bar -->
+    <div style="display: flex; gap: 0.5rem; justify-content: flex-end;">
+      <button class="btn btn-danger" onclick="rejectAction({{ act.id }})" id="btn-reject-{{ act.id }}">
+        Reject
+      </button>
+      <button class="btn btn-secondary" onclick="approveAction({{ act.id }})" id="btn-approve-{{ act.id }}">
+        Approve
+      </button>
+      <button class="btn btn-primary" onclick="executeAction({{ act.id }})" id="btn-exec-{{ act.id }}">
+        Approve & Execute Now
+      </button>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="card" style="text-align: center; padding: 2.5rem;">
+  <p style="color: var(--text-secondary); font-size: 0.95rem; margin-bottom: 1rem;">No actions matching current filters.</p>
+  <a href="/jobs" class="btn btn-secondary" id="go-to-jobs-btn">View Jobs History</a>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+function markUnsaved(actionId) {
+  const txt = document.getElementById('text-' + actionId);
+  const badge = document.getElementById('unsaved-badge-' + actionId);
+  const counter = document.getElementById('char-count-' + actionId);
+  
+  if (counter && txt) {
+    counter.innerText = txt.value.length + ' chars';
+  }
+
+  if (txt && badge) {
+    const original = txt.getAttribute('data-original-ai') || '';
+    if (txt.value !== original) {
+      badge.style.display = 'inline';
+    } else {
+      badge.style.display = 'none';
+    }
+  }
+}
+
+function handleTextareaKeydown(event, actionId) {
+  // Support Ctrl+S to quickly save current text draft
+  if ((event.ctrlKey || event.metaKey) && event.key === 's') {
+    event.preventDefault();
+    saveActionText(actionId);
+  }
+}
+
+function toggleNoteInput(actionId) {
+  const chk = document.getElementById('send-note-' + actionId);
+  const txt = document.getElementById('text-' + actionId);
+  if (chk && txt) {
+    txt.disabled = !chk.checked;
+    txt.style.opacity = chk.checked ? '1' : '0.4';
+  }
+}
+
+async function resetToAIOriginal(actionId) {
+  const txt = document.getElementById('text-' + actionId);
+  if (!txt) return;
+  const original = txt.getAttribute('data-original-ai') || '';
+  txt.value = original;
+  markUnsaved(actionId);
+  await saveActionText(actionId);
+}
+
+async function saveActionText(actionId) {
+  const btn = document.getElementById('btn-save-text-' + actionId);
+  const text = document.getElementById('text-' + actionId).value;
+  btn.disabled = true;
+  btn.innerText = 'Saving...';
+
+  try {
+    const res = await fetch(`/api/approvals/${actionId}/update-text`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ generated_text: text })
+    });
+    if (res.ok) {
+      const badge = document.getElementById('unsaved-badge-' + actionId);
+      if (badge) badge.style.display = 'none';
+      btn.innerText = '✓ Saved!';
+      setTimeout(() => { btn.innerText = '💾 Save Text'; btn.disabled = false; }, 1800);
+    } else {
+      alert('Error saving text draft.');
+      btn.innerText = '💾 Save Text';
+      btn.disabled = false;
+    }
+  } catch (err) {
+    alert('Error saving text: ' + err);
+    btn.innerText = '💾 Save Text';
+    btn.disabled = false;
+  }
+}
+
+async function regenerateAction(actionId) {
+  const btn = document.getElementById('btn-regen-' + actionId);
+  btn.disabled = true;
+  btn.innerText = 'Regenerating...';
+
+  try {
+    const res = await fetch(`/api/approvals/${actionId}/regenerate`, { method: 'POST' });
+    const data = await res.json();
+    if (res.ok) {
+      const txt = document.getElementById('text-' + actionId);
+      txt.value = data.generated_text;
+      txt.setAttribute('data-original-ai', data.generated_text);
+      markUnsaved(actionId);
+      const chk = document.getElementById('send-note-' + actionId);
+      if (chk) {
+        chk.checked = true;
+        toggleNoteInput(actionId);
+      }
+    } else {
+      alert('Error regenerating text');
+    }
+  } catch (err) {
+    alert('Error: ' + err);
+  } finally {
+    btn.disabled = false;
+    btn.innerText = '🔄 Regenerate with AI';
+  }
+}
+
+async function approveAction(actionId) {
+  const noteChk = document.getElementById('send-note-' + actionId);
+  const sendNote = noteChk ? noteChk.checked : true;
+  const text = document.getElementById('text-' + actionId).value;
+
+  try {
+    const res = await fetch(`/api/approvals/${actionId}/approve`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ generated_text: text, send_note: sendNote })
+    });
+    if (res.ok) {
+      location.reload();
+    } else {
+      alert('Error approving action');
+    }
+  } catch (err) {
+    alert('Error: ' + err);
+  }
+}
+
+async function rejectAction(actionId) {
+  try {
+    const res = await fetch(`/api/approvals/${actionId}/reject`, { method: 'POST' });
+    if (res.ok) {
+      document.getElementById('action-card-' + actionId).remove();
+    } else {
+      alert('Error rejecting action');
+    }
+  } catch (err) {
+    alert('Error: ' + err);
+  }
+}
+
+async function executeAction(actionId) {
+  const btn = document.getElementById('btn-exec-' + actionId);
+  btn.disabled = true;
+  btn.innerText = 'Executing via MCP / Playwright...';
+
+  const noteChk = document.getElementById('send-note-' + actionId);
+  const sendNote = noteChk ? noteChk.checked : true;
+  const text = document.getElementById('text-' + actionId).value;
+
+  await fetch(`/api/approvals/${actionId}/approve`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ generated_text: text, send_note: sendNote })
+  });
+
+  try {
+    const res = await fetch(`/api/approvals/${actionId}/execute`, { method: 'POST' });
+    const data = await res.json();
+    alert('Execution Finished:\n\n' + JSON.stringify(data.result, null, 2));
+    location.reload();
+  } catch (err) {
+    alert('Error executing action: ' + err);
+    btn.disabled = false;
+    btn.innerText = 'Approve & Execute Now';
+  }
+}
+
+async function approveAll() {
+  if (!confirm('Approve all pending actions?')) return;
+  try {
+    const res = await fetch('/api/approvals/approve-all', { method: 'POST' });
+    const data = await res.json();
+    alert(data.message);
+    location.reload();
+  } catch (err) {
+    alert('Error approving all: ' + err);
+  }
+}
+</script>
+{% endblock %}

@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}LinkedIn Daily Automation{% endblock %}</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+</head>
+<body>
+  <nav class="navbar">
+    <a href="/" class="nav-brand" id="brand-link">
+      <span class="brand-icon">in</span>
+      <span>LinkedIn Auto System</span>
+    </a>
+    <ul class="nav-links">
+      <li><a href="/" class="nav-link" id="nav-dashboard">Dashboard</a></li>
+      <li><a href="/jobs" class="nav-link" id="nav-jobs">Jobs</a></li>
+      <li><a href="/approvals" class="nav-link" id="nav-approvals">Approvals</a></li>
+      <li><a href="/analytics" class="nav-link" id="nav-analytics">Analytics</a></li>
+      <li><a href="/settings" class="nav-link" id="nav-settings">Settings</a></li>
+    </ul>
+    <div class="nav-status">
+      <span class="status-dot"></span>
+      <span id="nav-mode-text">MCP Active</span>
+    </div>
+  </nav>
+
+  <main class="container">
+    {% block content %}{% endblock %}
+  </main>
+
+  <footer>
+    <p>LinkedIn Daily Automation &copy; 2026 | MCP-First Architecture + Minimal Custom Browser Code</p>
+  </footer>
+
+  <script>
+    // Highlight active nav link
+    const path = window.location.pathname;
+    if (path === '/') document.getElementById('nav-dashboard')?.classList.add('active');
+    else if (path.startsWith('/jobs')) document.getElementById('nav-jobs')?.classList.add('active');
+    else if (path.startsWith('/approvals')) document.getElementById('nav-approvals')?.classList.add('active');
+    else if (path.startsWith('/analytics')) document.getElementById('nav-analytics')?.classList.add('active');
+    else if (path.startsWith('/settings')) document.getElementById('nav-settings')?.classList.add('active');
+  </script>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

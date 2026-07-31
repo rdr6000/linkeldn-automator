@@ -1,0 +1,185 @@
+{% extends "base.html" %}
+
+{% block title %}Job #{{ job.id }} - LinkedIn Daily Automation{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <a href="/jobs" class="btn btn-secondary" style="margin-bottom: 0.5rem;" id="back-to-jobs">← Back to Jobs</a>
+    <h1 class="page-title">Job #{{ job.id }} Live Status</h1>
+  </div>
+  <div>
+    <span class="badge badge-{{ job.status }}" id="job-status-badge" style="font-size: 0.9rem; padding: 0.4rem 0.85rem;">Status: {{ job.status }}</span>
+  </div>
+</div>
+
+<!-- Realtime Progress Bar Card -->
+<div class="card" style="margin-bottom: 1.5rem;">
+  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+    <span style="font-size: 0.85rem; color: var(--text-secondary); font-weight: 600;">Realtime Progress</span>
+    <span style="font-size: 0.95rem; color: var(--text-primary); font-weight: 700;" id="job-progress-text">{{ job.progress_pct or 0 }}%</span>
+  </div>
+  <div style="background: var(--bg-subtle); height: 10px; border-radius: 5px; overflow: hidden; border: 1px solid var(--border-subtle);">
+    <div id="job-progress-bar" style="background: var(--accent-blue); width: {{ job.progress_pct or 0 }}%; height: 100%; transition: width 0.3s ease;"></div>
+  </div>
+</div>
+
+<div class="grid" style="margin-bottom: 1.5rem;">
+  <div class="card">
+    <div class="card-title">Execution Mode</div>
+    <div class="card-value" style="font-size: 1.35rem;">{{ job.mode }}</div>
+  </div>
+  <div class="card">
+    <div class="card-title">Actions Created</div>
+    <div class="card-value" style="font-size: 1.35rem;" id="job-actions-count">{{ job.actions | length }}</div>
+  </div>
+  <div class="card">
+    <div class="card-title">Started At</div>
+    <div style="font-size: 0.95rem; color: var(--text-primary); font-weight: 500;">
+      {{ job.created_at.strftime('%H:%M:%S') if job.created_at else '-' }}
+    </div>
+  </div>
+</div>
+
+<div style="margin-bottom: 2rem;">
+  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+    <h2 style="font-size: 1.05rem; font-weight: 600; color: var(--text-primary); margin-bottom: 0;">Live Execution Logs</h2>
+    <span style="font-size: 0.75rem; color: var(--accent-blue); font-weight: 600;" id="poll-indicator">⚡ Connecting SSE Log Stream...</span>
+  </div>
+  <pre id="job-logs" style="background: var(--bg-card); color: var(--text-primary); padding: 1.25rem; border-radius: var(--radius-md); border: 1px solid var(--border-subtle); font-family: 'Courier New', monospace; font-size: 0.825rem; line-height: 1.5; height: 260px; overflow-y: auto; white-space: pre-wrap;">{{ job.logs or 'Initializing job execution logs...' }}</pre>
+</div>
+
+<div>
+  <h2 style="font-size: 1.05rem; font-weight: 600; margin-bottom: 0.75rem; color: var(--text-primary);">Job Target Actions</h2>
+  <div class="table-container">
+    <table>
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Type</th>
+          <th>Target Author / Name</th>
+          <th>Original Post / Target Context</th>
+          <th>Generated AI Response</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody id="job-actions-body">
+        {% for act in job.actions %}
+        <tr>
+          <td style="font-weight: 600; color: var(--text-primary);">#{{ act.id }}</td>
+          <td><span class="badge badge-{{ act.action_type }}">{{ act.action_type }}</span></td>
+          <td style="color: var(--text-primary); font-weight: 600; min-width: 140px;">
+            {{ act.target_name or 'LinkedIn Target' }}
+            <br>
+            <a href="{{ act.target_url }}" target="_blank" style="color: var(--accent-blue); font-size: 0.75rem; text-decoration: none;">View Link ↗</a>
+          </td>
+          <!-- Full Original Text Context -->
+          <td style="max-width: 320px; font-size: 0.8rem; color: var(--text-secondary); line-height: 1.4; word-wrap: break-word;">
+            {{ act.original_text or 'Post content not available' }}
+          </td>
+          <td style="max-width: 300px; font-size: 0.85rem; color: var(--text-primary); line-height: 1.45; word-wrap: break-word;">
+            {{ act.generated_text }}
+          </td>
+          <td><span class="badge badge-{{ act.status }}">{{ act.status }}</span></td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="6" style="text-align: center; color: var(--text-tertiary);">No actions generated for this job yet.</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const jobId = {{ job.id }};
+const pollIndicator = document.getElementById('poll-indicator');
+
+function initLogStream() {
+  if (!!window.EventSource) {
+    pollIndicator.innerText = '⚡ Realtime SSE Stream Connected';
+    const evtSource = new EventSource(`/api/jobs/${jobId}/stream-logs`);
+
+    evtSource.onmessage = function(e) {
+      try {
+        const data = JSON.parse(e.data);
+        if (data.error) return;
+
+        // Update Progress Bar
+        const pct = data.progress_pct || 0;
+        document.getElementById('job-progress-text').innerText = pct + '%';
+        document.getElementById('job-progress-bar').style.width = pct + '%';
+
+        // Update Status Badge
+        const badge = document.getElementById('job-status-badge');
+        badge.className = `badge badge-${data.status}`;
+        badge.innerText = `Status: ${data.status}`;
+
+        // Update Logs
+        const logBox = document.getElementById('job-logs');
+        logBox.innerText = data.logs || 'No logs recorded.';
+        logBox.scrollTop = logBox.scrollHeight;
+
+        if (data.actions_count) {
+          document.getElementById('job-actions-count').innerText = data.actions_count;
+        }
+
+        if (data.status === 'completed' || data.status === 'failed' || data.status === 'waiting_approval') {
+          pollIndicator.innerText = `✓ Final status: ${data.status}`;
+          evtSource.close();
+        }
+      } catch (err) {
+        console.error('Error parsing SSE event data:', err);
+      }
+    };
+
+    evtSource.onerror = function() {
+      pollIndicator.innerText = '🟢 Fallback Polling...';
+      evtSource.close();
+      pollJobProgress();
+    };
+  } else {
+    pollJobProgress();
+  }
+}
+
+async function pollJobProgress() {
+  try {
+    const res = await fetch(`/api/jobs/${jobId}`);
+    if (!res.ok) return;
+    const data = await res.json();
+
+    const pct = data.progress_pct || 0;
+    document.getElementById('job-progress-text').innerText = pct + '%';
+    document.getElementById('job-progress-bar').style.width = pct + '%';
+
+    const badge = document.getElementById('job-status-badge');
+    badge.className = `badge badge-${data.status}`;
+    badge.innerText = `Status: ${data.status}`;
+
+    const logBox = document.getElementById('job-logs');
+    logBox.innerText = data.logs || 'No logs recorded.';
+    logBox.scrollTop = logBox.scrollHeight;
+
+    if (data.actions) {
+      document.getElementById('job-actions-count').innerText = data.actions.length;
+    }
+
+    if (data.status === 'completed' || data.status === 'failed' || data.status === 'waiting_approval') {
+      pollIndicator.innerText = `✓ Final status: ${data.status}`;
+      return;
+    }
+  } catch (err) {
+    console.error('Error polling job:', err);
+  }
+
+  setTimeout(pollJobProgress, 2000);
+}
+
+// Start realtime SSE stream immediately
+initLogStream();
+</script>
+{% endblock %}

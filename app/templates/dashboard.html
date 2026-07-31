@@ -1,0 +1,169 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - LinkedIn Daily Automation{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Dashboard Overview</h1>
+    <p class="page-description">Real-time status and automation performance statistics.</p>
+  </div>
+  <div>
+    <button class="btn btn-primary" id="btn-run-job" onclick="showJobModal()">
+      ⚡ Run Automation Job
+    </button>
+  </div>
+</div>
+
+<!-- Run Job Action Selection Modal / Drawer -->
+<div id="job-modal" class="card" style="display: none; margin-bottom: 2rem; border-color: var(--accent-blue);">
+  <h3 style="font-size: 1.05rem; font-weight: 600; color: var(--text-primary); margin-bottom: 0.85rem;">Select Automation Actions to Execute</h3>
+  <p style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 1.25rem;">Choose specific tasks for this run or leave all selected:</p>
+  
+  <div style="display: flex; flex-wrap: wrap; gap: 1.5rem; margin-bottom: 1.5rem;">
+    <label style="display: flex; align-items: center; gap: 0.5rem; color: var(--text-primary); font-size: 0.9rem; cursor: pointer;">
+      <input type="checkbox" id="chk-comment" checked> 💬 Post Comments
+    </label>
+    <label style="display: flex; align-items: center; gap: 0.5rem; color: var(--text-primary); font-size: 0.9rem; cursor: pointer;">
+      <input type="checkbox" id="chk-like" checked> 👍 Post Likes
+    </label>
+    <label style="display: flex; align-items: center; gap: 0.5rem; color: var(--text-primary); font-size: 0.9rem; cursor: pointer;">
+      <input type="checkbox" id="chk-connect" checked> 🤝 Connection Requests
+    </label>
+    <label style="display: flex; align-items: center; gap: 0.5rem; color: var(--text-primary); font-size: 0.9rem; cursor: pointer;">
+      <input type="checkbox" id="chk-follow" checked> ➕ Follow Profiles
+    </label>
+  </div>
+
+  <div style="display: flex; justify-content: flex-end; gap: 0.75rem;">
+    <button type="button" class="btn btn-secondary" onclick="hideJobModal()">Cancel</button>
+    <button type="button" class="btn btn-primary" id="btn-confirm-run" onclick="runNewJob()">Start Selected Automation Job</button>
+  </div>
+</div>
+
+<div class="grid">
+  <div class="card">
+    <div class="card-title">Pending Approvals</div>
+    <div class="card-value" id="stat-pending">{{ pending_count }}</div>
+  </div>
+  <div class="card">
+    <div class="card-title">Executed Actions</div>
+    <div class="card-value" id="stat-executed">{{ executed_count }}</div>
+  </div>
+  <div class="card">
+    <div class="card-title">Total Jobs Run</div>
+    <div class="card-value" id="stat-jobs">{{ total_jobs }}</div>
+  </div>
+  <div class="card">
+    <div class="card-title">Operational Mode</div>
+    <div class="card-value" style="font-size: 1.35rem; color: var(--accent-blue); text-transform: uppercase;">
+      {{ mode }}
+    </div>
+  </div>
+</div>
+
+<div style="margin-bottom: 2rem;">
+  <h2 style="font-size: 1.1rem; font-weight: 600; margin-bottom: 0.85rem; color: var(--text-primary);">Recent Automation Jobs</h2>
+  <div class="table-container">
+    <table>
+      <thead>
+        <tr>
+          <th>Job ID</th>
+          <th>Status</th>
+          <th>Mode</th>
+          <th>Created At</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for job in recent_jobs %}
+        <tr>
+          <td style="font-weight: 600; color: var(--text-primary);">#{{ job.id }}</td>
+          <td><span class="badge badge-{{ job.status }}">{{ job.status }}</span></td>
+          <td>{{ job.mode }}</td>
+          <td>{{ job.created_at.strftime('%Y-%m-%d %H:%M:%S') if job.created_at else '-' }}</td>
+          <td>
+            <a href="/jobs/{{ job.id }}" class="btn btn-secondary" style="padding: 0.25rem 0.55rem; font-size: 0.75rem;" id="job-view-{{ job.id }}">View Log</a>
+          </td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="5" style="text-align: center; color: var(--text-tertiary);">No jobs run yet. Click 'Run Automation Job' above to start!</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div>
+  <h2 style="font-size: 1.1rem; font-weight: 600; margin-bottom: 0.85rem; color: var(--text-primary);">Recent Executed History</h2>
+  <div class="table-container">
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Target Name</th>
+          <th>Target URL</th>
+          <th>Status</th>
+          <th>Timestamp</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for h in recent_history %}
+        <tr>
+          <td><span class="badge badge-{{ h.action_type }}">{{ h.action_type }}</span></td>
+          <td style="color: var(--text-primary); font-weight: 500;">{{ h.target_name or 'N/A' }}</td>
+          <td><a href="{{ h.target_url }}" target="_blank" style="color: var(--accent-blue); text-decoration: none;">View Link ↗</a></td>
+          <td><span class="badge badge-{{ h.status }}">{{ h.status }}</span></td>
+          <td>{{ h.timestamp.strftime('%Y-%m-%d %H:%M:%S') if h.timestamp else '-' }}</td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="5" style="text-align: center; color: var(--text-tertiary);">No executed actions logged yet.</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function showJobModal() {
+  document.getElementById('job-modal').style.display = 'block';
+}
+
+function hideJobModal() {
+  document.getElementById('job-modal').style.display = 'none';
+}
+
+async function runNewJob() {
+  const btn = document.getElementById('btn-confirm-run');
+  btn.disabled = true;
+  btn.innerText = 'Starting Job...';
+
+  const actions = [];
+  if (document.getElementById('chk-comment').checked) actions.push('comment');
+  if (document.getElementById('chk-like').checked) actions.push('like');
+  if (document.getElementById('chk-connect').checked) actions.push('connect');
+  if (document.getElementById('chk-follow').checked) actions.push('follow');
+
+  try {
+    const res = await fetch('/api/jobs/run', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ actions: actions })
+    });
+    const data = await res.json();
+    alert(data.message);
+    window.location.href = '/jobs/' + data.job_id;
+  } catch (err) {
+    alert('Failed to start job: ' + err);
+    btn.disabled = false;
+    btn.innerText = 'Start Selected Automation Job';
+  }
+}
+</script>
+{% endblock %}

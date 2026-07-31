@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+
+{% block title %}Jobs - LinkedIn Daily Automation{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Automation Jobs History</h1>
+    <p class="page-description">Track real-time progress, batch processing logs, and actions for all runs.</p>
+  </div>
+  <a href="/" class="btn btn-primary" id="btn-run-job-list">
+    ⚡ Start New Job from Dashboard
+  </a>
+</div>
+
+<div class="table-container">
+  <table>
+    <thead>
+      <tr>
+        <th>Job ID</th>
+        <th>Status</th>
+        <th>Progress</th>
+        <th>Mode</th>
+        <th>Actions Count</th>
+        <th>Created At</th>
+        <th>Details</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for job in jobs %}
+      <tr>
+        <td style="font-weight: 600; color: var(--text-primary);">#{{ job.id }}</td>
+        <td><span class="badge badge-{{ job.status }}">{{ job.status }}</span></td>
+        <td style="min-width: 140px;">
+          <div style="display: flex; align-items: center; gap: 0.5rem;">
+            <div style="flex: 1; background: var(--bg-subtle); height: 6px; border-radius: 3px; overflow: hidden; border: 1px solid var(--border-subtle);">
+              <div style="background: var(--accent-blue); width: {{ job.progress_pct or 0 }}%; height: 100%;"></div>
+            </div>
+            <span style="font-size: 0.75rem; color: var(--text-secondary); font-weight: 600;">{{ job.progress_pct or 0 }}%</span>
+          </div>
+        </td>
+        <td>{{ job.mode }}</td>
+        <td>{{ job.actions | length }}</td>
+        <td>{{ job.created_at.strftime('%Y-%m-%d %H:%M:%S') if job.created_at else '-' }}</td>
+        <td>
+          <a href="/jobs/{{ job.id }}" class="btn btn-secondary" style="padding: 0.25rem 0.6rem; font-size: 0.75rem;" id="job-btn-{{ job.id }}">
+            View Live Log ↗
+          </a>
+        </td>
+      </tr>
+      {% else %}
+      <tr>
+        <td colspan="7" style="text-align: center; color: var(--text-tertiary);">No jobs found. Start a job from the Dashboard!</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}
